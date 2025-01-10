@@ -20,7 +20,7 @@ Once connected, follow the steps below to configure the device.
 
 ### Configuration -> Other
 Enter the following in the template field, and select *Activate* (if you are using the ESP01M)
-```json
+```javascript
 {"NAME":"Tasmota IR-Gateway","GPIO":[0,0,0,0,1056,0,0,0,0,0,1088,0,0,0],"FLAG":0,"BASE":18}
 ```
 ![image2](/images/configure_other.png)
@@ -28,12 +28,12 @@ Enter the following in the template field, and select *Activate* (if you are usi
 Enter a *Web Admin Password*, descriptive *Device Name* and *Friendly Name* (all optional) and save the configuration. If you configured a password, you will be prompted for credentials after reboot. Username: *admin*, and the password you configured.
 
 ### Configuration -> MQTT
-Enter your MQTT details here and save
+Enter your MQTT details here and save.
 ![image3](/images/configure_mqtt.png)
 
 ## Identify your AC
 After configuration open the Tasmota console, point your AC remote to the IR receiver and press the button for turning the AC on. If everything in working, you should see a line like below (example with Fujitsu Air Conditioner). Note down the protocol.
-```json
+```javascript
 {'IrReceived': {'Protocol': 'FUJITSU_AC', 'Bits': 128, 'Data': '0x0x1463001010FE09304013003008002025', 'Repeat': 0, 'IRHVAC': {'Vendor': 'FUJITSU_AC', 'Model': 1, 'Power': 'On', 'Mode': 'fan_only', 'Celsius': 'On', 'Temp': 20, 'FanSpeed': 'Auto', 'SwingV': 'Off', 'SwingH': 'Off', 'Quiet': 'Off', 'Turbo': 'Off', 'Econo': 'Off', 'Light': 'Off', 'Filter': 'Off', 'Clean': 'Off', 'Beep': 'Off', 'Sleep': -1}}}
 ```
 If vendor is not *‘Unknown’* and you see the *‘IRHVAC’* key, containing information, you can be sure that it will work for you.
