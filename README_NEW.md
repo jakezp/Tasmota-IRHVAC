@@ -23,12 +23,14 @@ Enter the following in the template field, and select *Activate* (if you are usi
 ```javascript
 {"NAME":"Tasmota IR-Gateway","GPIO":[0,0,0,0,1056,0,0,0,0,0,1088,0,0,0],"FLAG":0,"BASE":18}
 ```
+
 ![image2](/images/configure_other.png)
 
 Enter a *Web Admin Password*, descriptive *Device Name* and *Friendly Name* (all optional) and save the configuration. If you configured a password, you will be prompted for credentials after reboot. Username: *admin*, and the password you configured.
 
 ### Configuration -> MQTT
 Enter your MQTT details here and save.
+
 ![image3](/images/configure_mqtt.png)
 
 ## Identify your AC
