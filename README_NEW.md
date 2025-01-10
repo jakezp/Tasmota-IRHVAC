@@ -30,6 +30,7 @@ Enter a *Web Admin Password*, descriptive *Device Name* and *Friendly Name* (all
 
 ### Configuration -> MQTT
 Enter your MQTT details here and save.
+![image3](/images/configure_mqtt.png)
 
 ## Identify your AC
 After configuration open the Tasmota console, point your AC remote to the IR receiver and press the button for turning the AC on. If everything in working, you should see a line like below (example with Fujitsu Air Conditioner). Note down the protocol.
