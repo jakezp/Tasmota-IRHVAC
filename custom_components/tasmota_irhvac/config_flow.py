@@ -89,6 +89,12 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Add OFF mode to the default modes list
+# This ensures the OFF button/mode is available in the UI
+# When OFF mode is selected, 'Power' is set to 'Off' in the MQTT payload
+from homeassistant.components.climate.const import HVACMode
+DEFAULT_MODES_LIST_WITH_OFF = [HVACMode.OFF] + list(DEFAULT_MODES_LIST)
+
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
@@ -163,12 +169,12 @@ class TasmotaIRHVACOptionsFlow(OptionsFlow):
                 vol.Optional(
                     CONF_MODES_LIST,
                     default=self.options.get(
-                        CONF_MODES_LIST, 
-                        self.data.get(CONF_MODES_LIST, DEFAULT_MODES_LIST)
+                        CONF_MODES_LIST,
+                        self.data.get(CONF_MODES_LIST, DEFAULT_MODES_LIST_WITH_OFF)
                     ),
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=DEFAULT_MODES_LIST,
+                        options=["off"] + DEFAULT_MODES_LIST,
                         multiple=True,
                     ),
                 ),
@@ -478,9 +484,9 @@ class TasmotaIRHVACConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="modes",
             data_schema=vol.Schema({
-                vol.Required(CONF_MODES_LIST, default=DEFAULT_MODES_LIST): selector.SelectSelector(
+                vol.Required(CONF_MODES_LIST, default=DEFAULT_MODES_LIST_WITH_OFF): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=DEFAULT_MODES_LIST,
+                        options=["off"] + DEFAULT_MODES_LIST,
                         multiple=True,
                     ),
                 ),

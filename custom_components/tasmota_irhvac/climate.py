@@ -825,10 +825,10 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
         preset_features = [p for p in enabled_presets if p in self._feature_presets]
         if preset_features:
             # Ensure proper capitalization for UI display
-            self._attr_preset_modes.extend(preset_features)
+            self._attr_preset_modes.extend([p.capitalize() for p in preset_features])
             
-        # Add ECO preset if econo is enabled
-        if "econo" in preset_features:
+        # Add ECO preset if econo is enabled but not already added
+        if "econo" in preset_features and PRESET_ECO not in self._attr_preset_modes:
             self._attr_preset_modes.append(PRESET_ECO)
 
         # Additional settings
@@ -1360,7 +1360,7 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
                     return PRESET_ECO
                 # Return the preset name with proper capitalization
                 # This ensures the UI displays it correctly with proper icons
-                return preset
+                return preset.capitalize()
 
         return PRESET_NONE
 
