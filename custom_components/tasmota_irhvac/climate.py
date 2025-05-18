@@ -824,6 +824,7 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
         # Add feature presets (mutually exclusive modes)
         preset_features = [p for p in enabled_presets if p in self._feature_presets]
         if preset_features:
+            # Ensure proper capitalization for UI display
             self._attr_preset_modes.extend(preset_features)
             
         # Add ECO preset if econo is enabled
@@ -1357,6 +1358,8 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
                 # Special case for econo - map to standard ECO preset
                 if preset == "econo":
                     return PRESET_ECO
+                # Return the preset name with proper capitalization
+                # This ensures the UI displays it correctly with proper icons
                 return preset
 
         return PRESET_NONE
@@ -1778,16 +1781,20 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
             self._attr_hvac_mode = HVACMode.OFF
             self._enabled = False
             self.power_mode = STATE_OFF
+            _LOGGER.debug("Setting mode to OFF, last_on_mode: %s", self._last_on_mode)
             
         # Handle other modes
         elif hvac_mode in self._attr_hvac_modes:
-            self._attr_hvac_mode = self._last_on_mode = hvac_mode
+            self._attr_hvac_mode = hvac_mode
+            self._last_on_mode = hvac_mode
             self._enabled = True
             self.power_mode = STATE_ON
+            _LOGGER.debug("Setting mode to %s", hvac_mode)
             
         # Handle invalid modes
         else:
-            _LOGGER.warning(f"Invalid HVAC mode: {hvac_mode}. Setting to OFF.")
+            _LOGGER.warning("Invalid HVAC mode: %s. Setting to OFF. Available modes: %s",
+                           hvac_mode, self._attr_hvac_modes)
             self._attr_hvac_mode = HVACMode.OFF
             self._enabled = False
             self.power_mode = STATE_OFF

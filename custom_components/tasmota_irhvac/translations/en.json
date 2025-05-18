@@ -65,11 +65,13 @@
                 }
             },
             "presets": {
-                "title": "Preset Modes Configuration",
-                "description": "Configure which preset modes should be available for this AC unit.\n\n**Preset modes** are special operating modes that change how your AC functions (Economy, Turbo, Quiet, Sleep).\n\n**Enabled Presets** will be available in the climate card.\n**Default Presets** will be activated when the AC starts.",
+                "title": "Preset Modes & Essential Settings",
+                "description": "Configure which preset modes should be available for this AC unit.\n\n**Preset modes** are special operating modes that change how your AC functions (Economy, Turbo, Quiet, Sleep).\n\n**Enabled Presets** will be available in the climate card.\n**Default Presets** will be activated when the AC starts.\n\n**Essential Settings** control how the AC behaves when turned off.",
                 "data": {
                     "enabled_presets": "Enable Preset Modes",
-                    "default_presets": "Default Active Presets"
+                    "default_presets": "Default Active Presets",
+                    "keep_mode_when_off": "Keep Mode When Off",
+                    "ignore_off_temp": "Ignore Temperature When Off"
                 }
             },
             "toggles": {
@@ -122,6 +124,7 @@
                 "preset_mode": {
                     "none": "Normal",
                     "away": "Away",
+                    "eco": "Economy",
                     "econo": "Economy",
                     "turbo": "Turbo",
                     "quiet": "Quiet",

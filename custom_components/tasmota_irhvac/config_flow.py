@@ -519,6 +519,10 @@ class TasmotaIRHVACConfigFlow(ConfigFlow, domain=DOMAIN):
                         else:
                             self._data[f"default_{preset}_mode"] = "On"
             
+            # Add the essential settings from the features step
+            self._data[CONF_KEEP_MODE] = user_input.get(CONF_KEEP_MODE, DEFAULT_CONF_KEEP_MODE)
+            self._data[CONF_IGNORE_OFF_TEMP] = user_input.get(CONF_IGNORE_OFF_TEMP, DEFAULT_IGNORE_OFF_TEMP)
+            
             self._data.update(user_input)
             return await self.async_step_toggles()
 
@@ -546,8 +550,14 @@ class TasmotaIRHVACConfigFlow(ConfigFlow, domain=DOMAIN):
                             mode=selector.SelectSelectorMode.DROPDOWN,
                         ),
                     ),
+                    # Add essential settings from the features step
+                    vol.Optional(CONF_KEEP_MODE, default=DEFAULT_CONF_KEEP_MODE): bool,
+                    vol.Optional(CONF_IGNORE_OFF_TEMP, default=DEFAULT_IGNORE_OFF_TEMP): bool,
                 }),
                 errors=errors,
+                description_placeholders={
+                    "note": "Configure preset modes and essential settings for your AC unit."
+                },
             )
         except Exception as ex:
             _LOGGER.error("Error in presets step: %s", str(ex))
@@ -577,7 +587,29 @@ class TasmotaIRHVACConfigFlow(ConfigFlow, domain=DOMAIN):
                             self._data[f"default_{toggle}_mode"] = "On"
             
             self._data.update(user_input)
-            return await self.async_step_features()
+            
+            # Skip the features step and create the entry directly
+            # For backward compatibility, ensure toggle_list is properly populated
+            toggle_list = []
+            
+            # Add enabled presets to toggle_list for backward compatibility
+            for preset in [p.lower() for p in PRESET_OPTIONS_LIST]:
+                if preset in self._data.get("enabled_presets", []):
+                    toggle_list.append(preset.capitalize())
+            
+            # Add enabled toggles to toggle_list for backward compatibility
+            for toggle in [t.lower() for t in TOGGLE_OPTIONS_LIST]:
+                if toggle in self._data.get("enabled_toggles", []):
+                    toggle_list.append(toggle.capitalize())
+            
+            # Update toggle_list in data
+            self._data[CONF_TOGGLE_LIST] = toggle_list
+            
+            # Create the entry
+            return self.async_create_entry(
+                title=self._data[CONF_NAME],
+                data=self._data,
+            )
 
         # Get all available toggles - ONLY toggles, not presets
         available_toggles = [
@@ -616,48 +648,27 @@ class TasmotaIRHVACConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
     async def async_step_features(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Configure additional features."""
-        if user_input is not None:
-            self._data.update(user_input)
-            
-            # For backward compatibility, ensure toggle_list is properly populated
-            # based on enabled_presets and enabled_toggles
-            toggle_list = []
-            
-            # Add enabled presets to toggle_list for backward compatibility
-            for preset in [p.lower() for p in PRESET_OPTIONS_LIST]:
-                if preset in self._data.get("enabled_presets", []):
-                    toggle_list.append(preset.capitalize())
-            
-            # Add enabled toggles to toggle_list for backward compatibility
-            for toggle in [t.lower() for t in TOGGLE_OPTIONS_LIST]:
-                if toggle in self._data.get("enabled_toggles", []):
-                    toggle_list.append(toggle.capitalize())
-            
-            # Update toggle_list in data if not explicitly set by user
-            if not self._data.get(CONF_TOGGLE_LIST):
-                self._data[CONF_TOGGLE_LIST] = toggle_list
-            
-            return self.async_create_entry(
-                title=self._data[CONF_NAME],
-                data=self._data,
-            )
-
-        return self.async_show_form(
-            step_id="features",
-            data_schema=vol.Schema({
-                vol.Optional(CONF_TOGGLE_LIST, default=[]): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=TOGGLE_ALL_LIST,
-                        multiple=True,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    ),
-                ),
-                vol.Optional(CONF_KEEP_MODE, default=DEFAULT_CONF_KEEP_MODE): bool,
-                vol.Optional(CONF_IGNORE_OFF_TEMP, default=DEFAULT_IGNORE_OFF_TEMP): bool,
-            }),
-            description_placeholders={
-                "note": "These are advanced settings. The toggle list is maintained for backward compatibility."
-            },
+        """Configure additional features (optional step)."""
+        # Skip this step by default and create the entry directly
+        # For backward compatibility, ensure toggle_list is properly populated
+        toggle_list = []
+        
+        # Add enabled presets to toggle_list for backward compatibility
+        for preset in [p.lower() for p in PRESET_OPTIONS_LIST]:
+            if preset in self._data.get("enabled_presets", []):
+                toggle_list.append(preset.capitalize())
+        
+        # Add enabled toggles to toggle_list for backward compatibility
+        for toggle in [t.lower() for t in TOGGLE_OPTIONS_LIST]:
+            if toggle in self._data.get("enabled_toggles", []):
+                toggle_list.append(toggle.capitalize())
+        
+        # Update toggle_list in data
+        self._data[CONF_TOGGLE_LIST] = toggle_list
+        
+        # Create the entry
+        return self.async_create_entry(
+            title=self._data[CONF_NAME],
+            data=self._data,
         )
 
