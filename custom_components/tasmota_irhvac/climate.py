@@ -716,9 +716,17 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
                     new_fan_list.append(val)
             self._attr_fan_modes = new_fan_list if len(new_fan_list) else None
 
-        self._quirk_fan_prettify = all(mode not in (self._attr_fan_modes or []) for mode in [FAN_LOW, FAN_HIGH])
+        # Set quirk_fan_prettify if we have min/max fan modes that need prettification
+        self._quirk_fan_prettify = any(mode in (self._attr_fan_modes or []) for mode in [HVAC_FAN_MIN, HVAC_FAN_MAX])
+        
+        # Log the fan modes and prettification status
+        _LOGGER.debug("Fan modes before prettification: %s", self._attr_fan_modes)
+        _LOGGER.debug("Fan prettification enabled: %s", self._quirk_fan_prettify)
+        
+        # Apply prettification if needed
         if self._quirk_fan_prettify and self._attr_fan_modes:
             self._attr_fan_modes = [self.fan_prettify(mode) for mode in self._attr_fan_modes]
+            _LOGGER.debug("Fan modes after prettification: %s", self._attr_fan_modes)
         
         # Set initial fan mode
         self._attr_fan_mode = (
@@ -836,20 +844,30 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
         """Convert internal fan mode values to display values with proper styling."""
         if not self._quirk_fan_prettify:
             return mode
-        if mode == HVAC_FAN_MIN:
-            return FAN_LOW  # This will display as "Low" with proper icon
-        if mode == HVAC_FAN_MAX:
-            return FAN_AUTO  # This will display as "Auto" with proper icon
+        
+        # Handle case insensitivity
+        if isinstance(mode, str):
+            mode_lower = mode.lower()
+            if mode_lower == HVAC_FAN_MIN.lower():
+                return FAN_LOW  # This will display as "Low" with proper icon
+            if mode_lower == HVAC_FAN_MAX.lower():
+                return FAN_AUTO  # This will display as "Auto" with proper icon
+        
         return mode
 
     def fan_unprettify(self, mode):
         """Convert display values back to internal fan mode values."""
         if not self._quirk_fan_prettify:
             return mode
-        if mode == FAN_LOW:
-            return HVAC_FAN_MIN
-        if mode == FAN_AUTO:
-            return HVAC_FAN_MAX
+        
+        # Handle case insensitivity
+        if isinstance(mode, str):
+            mode_lower = mode.lower()
+            if mode_lower == FAN_LOW.lower():
+                return HVAC_FAN_MIN
+            if mode_lower == FAN_AUTO.lower():
+                return HVAC_FAN_MAX
+        
         return mode
 
     def regist_track_state_change_event(self, entity_id):
@@ -1096,6 +1114,8 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
 
                     if "FanSpeed" in payload:
                         fan_mode = payload["FanSpeed"].lower()
+                        _LOGGER.debug("Received fan mode from MQTT: %s", fan_mode)
+                        
                         # ELECTRA_AC fan modes fix
                         if self._quirk_fan_max_high:
                             if fan_mode == HVAC_FAN_MAX:
@@ -1106,7 +1126,8 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
                                 self._attr_fan_mode = self.fan_prettify(fan_mode)
                         else:
                             self._attr_fan_mode = self.fan_prettify(fan_mode)
-                        _LOGGER.debug(self._attr_fan_mode)
+                        
+                        _LOGGER.debug("Fan mode after prettification: %s", self._attr_fan_mode)
 
                     if self._attr_hvac_mode is not HVACMode.OFF:
                         self._last_on_mode = self._attr_hvac_mode
@@ -1244,18 +1265,27 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
         await self.async_send_cmd()
 
     async def async_set_fan_mode(self, fan_mode):
-        """Set new target fan mode."""
-        if fan_mode not in (self._attr_fan_modes or []):
-            _LOGGER.error(
-                "Invalid fan mode selected. Got '%s'. Allowed modes are:",
-                fan_mode,
-            )
-            _LOGGER.error(self._attr_fan_modes)
-            return
-        self._attr_fan_mode = fan_mode
-        if not self._attr_hvac_mode == HVACMode.OFF:
-            self.power_mode = STATE_ON
-        await self.async_send_cmd()
+            """Set new target fan mode."""
+            # First check if the fan mode is directly in the list
+            if fan_mode in (self._attr_fan_modes or []):
+                self._attr_fan_mode = fan_mode
+            else:
+                # If not found directly, check if it's a prettified mode that needs unprettifying
+                unprettified_mode = self.fan_unprettify(fan_mode)
+                if unprettified_mode in (self._attr_fan_modes or []):
+                    self._attr_fan_mode = unprettified_mode
+                else:
+                    # If still not found, log error and return
+                    _LOGGER.error(
+                        "Invalid fan mode selected. Got '%s'. Allowed modes are: %s",
+                        fan_mode,
+                        ", ".join(str(mode) for mode in (self._attr_fan_modes or [])),
+                    )
+                    return
+                    
+            if not self._attr_hvac_mode == HVACMode.OFF:
+                self.power_mode = STATE_ON
+            await self.async_send_cmd()
 
     async def async_set_swing_mode(self, swing_mode):
         """Set new target swing operation."""
@@ -1559,13 +1589,21 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
     async def send_ir(self):
         """Send the payload to tasmota mqtt topic."""
         try:
+            # Log the current fan mode before unprettifying
+            _LOGGER.debug("Current fan mode before unprettifying: %s", self._attr_fan_mode)
+            
+            # Unprettify the fan mode for sending to the device
             fan_speed = self.fan_unprettify(self._attr_fan_mode)
+            _LOGGER.debug("Fan mode after unprettifying: %s", fan_speed)
+            
             # tweak for some ELECTRA_AC devices
             if self._quirk_fan_max_high:
                 if fan_speed == FAN_AUTO:  # Changed from FAN_HIGH to FAN_AUTO
                     fan_speed = HVAC_FAN_MAX
+                    _LOGGER.debug("Applied ELECTRA_AC quirk: FAN_AUTO -> HVAC_FAN_MAX")
                 elif fan_speed == HVAC_FAN_MAX:
                     fan_speed = HVAC_FAN_AUTO
+                    _LOGGER.debug("Applied ELECTRA_AC quirk: HVAC_FAN_MAX -> HVAC_FAN_AUTO")
 
             # Set the swing mode - default off
             self._swingv = STATE_OFF if self._fix_swingv is None else self._fix_swingv
