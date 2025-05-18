@@ -81,6 +81,10 @@ from .const import (
     DEFAULT_FAN_LIST,
     DEFAULT_SWING_LIST,
     TOGGLE_ALL_LIST,
+    FEATURE_PRESETS,
+    FEATURE_TOGGLES,
+    PRESET_OPTIONS_LIST,
+    TOGGLE_OPTIONS_LIST,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -504,19 +508,24 @@ class TasmotaIRHVACConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             _LOGGER.debug("Received presets input: %s", user_input)
+            # Process enabled presets
+            if "enabled_presets" in user_input:
+                # Set default values for the enabled presets
+                for preset in ["econo", "turbo", "quiet", "sleep"]:
+                    if preset in user_input.get("enabled_presets", []):
+                        # If preset is enabled but not in default_presets, set it to "Off"
+                        if preset not in user_input.get("default_presets", []):
+                            self._data[f"default_{preset}_mode"] = "Off"
+                        else:
+                            self._data[f"default_{preset}_mode"] = "On"
+            
             self._data.update(user_input)
-            return await self.async_step_features()
+            return await self.async_step_toggles()
 
-        # Get all available presets
+        # Get all available presets - ONLY true presets, not toggles
         available_presets = [
-            ("econo", "Economy Mode"),
-            ("turbo", "Turbo Mode"),
-            ("quiet", "Quiet Mode"),
-            ("light", "Light Mode"),
-            ("filter", "Filter Mode"),
-            ("clean", "Clean Mode"),
-            ("beep", "Beep Mode"),
-            ("sleep", "Sleep Mode"),
+            (preset.lower(), f"{preset.capitalize()} Mode")
+            for preset in PRESET_OPTIONS_LIST
         ]
 
         try:
@@ -549,10 +558,86 @@ class TasmotaIRHVACConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors=errors,
             )
 
+    async def async_step_toggles(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Configure toggle features."""
+        _LOGGER.debug("Starting toggles step")
+        errors = {}
+
+        if user_input is not None:
+            _LOGGER.debug("Received toggles input: %s", user_input)
+            # Process enabled toggles
+            if "enabled_toggles" in user_input:
+                # Set default values for the enabled toggles
+                for toggle in ["light", "filter", "clean", "beep"]:
+                    if toggle in user_input.get("enabled_toggles", []):
+                        # If toggle is enabled but not in default_toggles, set it to "Off"
+                        if toggle not in user_input.get("default_toggles", []):
+                            self._data[f"default_{toggle}_mode"] = "Off"
+                        else:
+                            self._data[f"default_{toggle}_mode"] = "On"
+            
+            self._data.update(user_input)
+            return await self.async_step_features()
+
+        # Get all available toggles - ONLY toggles, not presets
+        available_toggles = [
+            (toggle.lower(), toggle.capitalize())
+            for toggle in TOGGLE_OPTIONS_LIST
+        ]
+
+        try:
+            return self.async_show_form(
+                step_id="toggles",
+                data_schema=vol.Schema({
+                    vol.Optional("enabled_toggles", default=[]): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[{"value": id, "label": name} for id, name in available_toggles],
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.LIST,
+                        ),
+                    ),
+                    vol.Optional("default_toggles", default=[]): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[{"value": id, "label": name} for id, name in available_toggles],
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        ),
+                    ),
+                }),
+                errors=errors,
+            )
+        except Exception as ex:
+            _LOGGER.error("Error in toggles step: %s", str(ex))
+            errors["base"] = "unknown"
+            return self.async_show_form(
+                step_id="toggles",
+                data_schema=vol.Schema({}),
+                errors=errors,
+            )
+
     async def async_step_features(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Configure additional features."""
         if user_input is not None:
             self._data.update(user_input)
+            
+            # For backward compatibility, ensure toggle_list is properly populated
+            # based on enabled_presets and enabled_toggles
+            toggle_list = []
+            
+            # Add enabled presets to toggle_list for backward compatibility
+            for preset in [p.lower() for p in PRESET_OPTIONS_LIST]:
+                if preset in self._data.get("enabled_presets", []):
+                    toggle_list.append(preset.capitalize())
+            
+            # Add enabled toggles to toggle_list for backward compatibility
+            for toggle in [t.lower() for t in TOGGLE_OPTIONS_LIST]:
+                if toggle in self._data.get("enabled_toggles", []):
+                    toggle_list.append(toggle.capitalize())
+            
+            # Update toggle_list in data if not explicitly set by user
+            if not self._data.get(CONF_TOGGLE_LIST):
+                self._data[CONF_TOGGLE_LIST] = toggle_list
+            
             return self.async_create_entry(
                 title=self._data[CONF_NAME],
                 data=self._data,
@@ -565,18 +650,14 @@ class TasmotaIRHVACConfigFlow(ConfigFlow, domain=DOMAIN):
                     selector.SelectSelectorConfig(
                         options=TOGGLE_ALL_LIST,
                         multiple=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
                     ),
                 ),
-                vol.Optional(CONF_QUIET, default=DEFAULT_CONF_QUIET): vol.In(["On", "Off"]),
-                vol.Optional(CONF_TURBO, default=DEFAULT_CONF_TURBO): vol.In(["On", "Off"]),
-                vol.Optional(CONF_ECONO, default=DEFAULT_CONF_ECONO): vol.In(["On", "Off"]),
-                vol.Optional(CONF_LIGHT, default=DEFAULT_CONF_LIGHT): vol.In(["On", "Off"]),
-                vol.Optional(CONF_FILTER, default=DEFAULT_CONF_FILTER): vol.In(["On", "Off"]),
-                vol.Optional(CONF_CLEAN, default=DEFAULT_CONF_CLEAN): vol.In(["On", "Off"]),
-                vol.Optional(CONF_BEEP, default=DEFAULT_CONF_BEEP): vol.In(["On", "Off"]),
-                vol.Optional(CONF_SLEEP, default=DEFAULT_CONF_SLEEP): str,
                 vol.Optional(CONF_KEEP_MODE, default=DEFAULT_CONF_KEEP_MODE): bool,
                 vol.Optional(CONF_IGNORE_OFF_TEMP, default=DEFAULT_IGNORE_OFF_TEMP): bool,
             }),
+            description_placeholders={
+                "note": "These are advanced settings. The toggle list is maintained for backward compatibility."
+            },
         )
 

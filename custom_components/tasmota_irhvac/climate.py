@@ -53,6 +53,7 @@ from homeassistant.components.climate.const import (
     ATTR_SWING_MODE,
     ATTR_HVAC_MODE,
     PRESET_AWAY,
+    PRESET_ECO,
     PRESET_NONE,
     ClimateEntityFeature,
     SWING_BOTH,
@@ -177,7 +178,10 @@ from .const import (
     TOGGLE_ALL_LIST,
 )
 
-# DEFAULT_MODES_LIST is imported from const.py
+# Add OFF mode to the default modes list
+# This ensures the OFF button/mode is available in the UI
+# When OFF mode is selected, 'Power' is set to 'Off' in the MQTT payload
+DEFAULT_MODES_LIST_WITH_OFF = [HVACMode.OFF] + list(DEFAULT_MODES_LIST)
 
 DEFAULT_SWING_LIST = [SWING_OFF, SWING_VERTICAL]
 DEFAULT_INITIAL_OPERATION_MODE = HVACMode.OFF
@@ -220,7 +224,7 @@ PLATFORM_SCHEMA = CLIMATE_PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_TEMP_STEP, default=PRECISION_WHOLE): vol.In(
             [PRECISION_HALVES, PRECISION_WHOLE]
         ),
-        vol.Optional(CONF_MODES_LIST, default=DEFAULT_MODES_LIST): vol.All(
+        vol.Optional(CONF_MODES_LIST, default=DEFAULT_MODES_LIST_WITH_OFF): vol.All(
             cv.ensure_list, [vol.In(HVAC_MODES)]
         ),
         vol.Optional(CONF_FAN_LIST, default=DEFAULT_FAN_LIST): vol.All(
@@ -513,7 +517,7 @@ async def async_setup_entry(hass: HomeAssistant,
         
         # Mode settings
         CONF_MODEL: config_entry.data.get(CONF_MODEL, DEFAULT_CONF_MODEL),
-        CONF_MODES_LIST: config_entry.data.get(CONF_MODES_LIST, DEFAULT_MODES_LIST),
+        CONF_MODES_LIST: config_entry.data.get(CONF_MODES_LIST, DEFAULT_MODES_LIST_WITH_OFF),
         CONF_FAN_LIST: config_entry.data.get(CONF_FAN_LIST, DEFAULT_FAN_LIST),
         CONF_SWING_LIST: config_entry.data.get(CONF_SWING_LIST, DEFAULT_SWING_LIST),
         
@@ -755,15 +759,35 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
         self._beep = config[CONF_BEEP].lower()
         self._sleep = config[CONF_SLEEP].lower()
         
-        # All possible feature presets
-        all_feature_presets = {
-            "econo": self._econo,
-            "turbo": self._turbo,
-            "quiet": self._quiet,
+        # FEATURE ORGANIZATION:
+        # The Tasmota IRHVAC integration organizes features into two categories:
+        #
+        # 1. FEATURE TOGGLES:
+        #    - These are additional features that can be toggled on/off independently
+        #    - They don't affect the core operation mode of the AC
+        #    - Examples: light, filter, clean, beep
+        #    - These are controlled via service calls (e.g., tasmota_irhvac.set_light)
+        #
+        # 2. FEATURE PRESETS:
+        #    - These are mutually exclusive operation modes
+        #    - Only one preset can be active at a time
+        #    - They affect how the AC operates (e.g., energy saving, maximum cooling)
+        #    - Examples: econo (maps to ECO), turbo, quiet, sleep
+        #    - These are controlled via the preset_mode selector in the UI
+        
+        # All possible feature toggles - can be toggled on/off independently
+        self._feature_toggles = {
             "light": self._light,
             "filter": self._filter,
             "clean": self._clean,
             "beep": self._beep,
+        }
+        
+        # All possible feature presets - mutually exclusive operation modes
+        self._feature_presets = {
+            "econo": self._econo,  # Maps to standard ECO preset
+            "turbo": self._turbo,
+            "quiet": self._quiet,
             "sleep": self._sleep,
         }
 
@@ -775,22 +799,36 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
         enabled_presets = config.get("enabled_presets", [])
         default_presets = config.get("default_presets", [])
         
-        _LOGGER.debug("Initializing with enabled presets: %s, default presets: %s", 
+        _LOGGER.debug("Initializing with enabled presets: %s, default presets: %s",
                     enabled_presets, default_presets)
 
-        # Initialize feature presets
-        self._feature_presets = {}
+        # Initialize feature presets and toggles
+        self._active_feature_presets = {}
+        self._active_feature_toggles = {}
+        
         for preset in enabled_presets:
             initial_state = "on" if preset in default_presets else "off"
             setattr(self, f"_{preset}", initial_state)
-            self._feature_presets[preset] = initial_state
+            
+            # Determine if this is a preset or toggle feature
+            if preset in self._feature_presets:
+                self._active_feature_presets[preset] = initial_state
+            elif preset in self._feature_toggles:
+                self._active_feature_toggles[preset] = initial_state
 
         # Set up available preset modes
         self._attr_preset_modes = [PRESET_NONE]
         if self._away_temp is not None:
             self._attr_preset_modes.append(PRESET_AWAY)
-        if enabled_presets:
-            self._attr_preset_modes.extend(enabled_presets)
+        
+        # Add feature presets (mutually exclusive modes)
+        preset_features = [p for p in enabled_presets if p in self._feature_presets]
+        if preset_features:
+            self._attr_preset_modes.extend(preset_features)
+            
+        # Add ECO preset if econo is enabled
+        if "econo" in preset_features:
+            self._attr_preset_modes.append(PRESET_ECO)
 
         # Additional settings
         self._sub_state = None
@@ -831,11 +869,11 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
         
         # Support flags
         self._support_flags = SUPPORT_FLAGS
-        if self._away_temp is not None or self._feature_presets:
+        if self._away_temp is not None or self._active_feature_presets:
             self._support_flags = self._support_flags | ClimateEntityFeature.PRESET_MODE
         
-        _LOGGER.debug("Initialized with preset modes: %s, Feature presets: %s",
-                 self._attr_preset_modes, self._feature_presets)
+        _LOGGER.debug("Initialized with preset modes: %s, Feature presets: %s, Feature toggles: %s",
+                 self._attr_preset_modes, self._active_feature_presets, self._active_feature_toggles)
         
         if self._attr_swing_mode is not None:
             self._support_flags = self._support_flags | ClimateEntityFeature.SWING_MODE
@@ -1314,106 +1352,255 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
             return PRESET_AWAY
 
         # Check if any feature preset is active
-        for preset, state in self._feature_presets.items():
+        for preset, state in self._active_feature_presets.items():
             if state.lower() == "on":
+                # Special case for econo - map to standard ECO preset
+                if preset == "econo":
+                    return PRESET_ECO
                 return preset
 
         return PRESET_NONE
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
-        """Set new preset mode."""
+        """Set new preset mode.
+        
+        Presets are mutually exclusive operation modes:
+        - AWAY: Uses away temperature
+        - ECO: Energy saving mode (maps to 'econo')
+        - Other feature presets: turbo, quiet, sleep
+        
+        This is different from toggleable features like light, filter, clean, beep
+        which can be turned on/off independently via service calls.
+        
+        PRESET MODES vs ADDITIONAL FEATURES:
+        
+        Preset Modes:
+        - Represent mutually exclusive operational states
+        - Only one can be active at a time
+        - Selected through the climate.set_preset_mode service or UI dropdown
+        - Examples: Away, Eco (energy saving), Turbo (maximum performance), Quiet
+        
+        Additional Features:
+        - Represent toggleable options that can be enabled/disabled independently
+        - Multiple can be active simultaneously
+        - Controlled through dedicated service calls (e.g., tasmota_irhvac.set_light)
+        - Examples: Light, Filter, Clean, Beep
+        """
         _LOGGER.debug("Setting preset mode to: %s", preset_mode)
         
+        # Handle Away preset
         if preset_mode == PRESET_AWAY:
             if not self._is_away:
                 self._is_away = True
                 self._saved_target_temp = self._attr_target_temperature
                 self._attr_target_temperature = self._away_temp
+                
+        # Handle None preset (turn off all presets)
         elif preset_mode == PRESET_NONE:
             if self._is_away:
                 self._is_away = False
                 self._attr_target_temperature = self._saved_target_temp
-            # Turn off all features
-            for feature in self._feature_presets:
+            # Turn off all feature presets
+            for feature in self._active_feature_presets:
                 setattr(self, f"_{feature}", "off")
-        elif preset_mode in self._feature_presets:
+                self._active_feature_presets[feature] = "off"
+                
+        # Handle ECO preset (maps to econo)
+        elif preset_mode == PRESET_ECO and "econo" in self._active_feature_presets:
+            if self._is_away:
+                self._is_away = False
+                self._attr_target_temperature = self._saved_target_temp
+                
+            # Turn on econo, turn off other feature presets
+            for feature in self._active_feature_presets:
+                if feature == "econo":
+                    setattr(self, f"_{feature}", "on")
+                    self._active_feature_presets[feature] = "on"
+                else:
+                    setattr(self, f"_{feature}", "off")
+                    self._active_feature_presets[feature] = "off"
+                    
+        # Handle other feature presets
+        elif preset_mode in self._active_feature_presets:
             # Turn off away mode if it's on
             if self._is_away:
                 self._is_away = False
                 self._attr_target_temperature = self._saved_target_temp
             
-            # Toggle the selected feature
-            for feature in self._feature_presets:
+            # Turn on the selected preset, turn off other presets
+            for feature in self._active_feature_presets:
                 if feature == preset_mode:
-                    current_state = getattr(self, f"_{feature}").lower()
-                    new_state = "off" if current_state == "on" else "on"
-                    setattr(self, f"_{feature}", new_state)
+                    setattr(self, f"_{feature}", "on")
+                    self._active_feature_presets[feature] = "on"
                 else:
-                    # Turn off other features
                     setattr(self, f"_{feature}", "off")
+                    self._active_feature_presets[feature] = "off"
 
         await self.async_send_cmd()
 
     async def async_set_econo(self, econo, state_mode=DEFAULT_STATE_MODE):
-        """Set new target econo mode."""
+        """Set new target econo mode.
+        
+        This is a feature preset (mutually exclusive operation mode).
+        When turned on, it will turn off other feature presets.
+        """
         if econo not in ON_OFF_LIST:
             return
+            
         self._econo = econo.lower()
         self._state_mode = state_mode
+        
+        # Update active feature presets tracking
+        if "econo" in self._active_feature_presets:
+            self._active_feature_presets["econo"] = econo.lower()
+            
+            # If turning on econo, turn off other feature presets
+            if econo.lower() == "on":
+                for feature in self._active_feature_presets:
+                    if feature != "econo":
+                        setattr(self, f"_{feature}", "off")
+                        self._active_feature_presets[feature] = "off"
+        
         await self.async_send_cmd()
 
     async def async_set_turbo(self, turbo, state_mode):
-        """Set new target turbo mode."""
+        """Set new target turbo mode.
+        
+        This is a feature preset (mutually exclusive operation mode).
+        When turned on, it will turn off other feature presets.
+        """
         if turbo not in ON_OFF_LIST:
             return
+            
         self._turbo = turbo.lower()
         self._state_mode = state_mode
+        
+        # Update active feature presets tracking
+        if "turbo" in self._active_feature_presets:
+            self._active_feature_presets["turbo"] = turbo.lower()
+            
+            # If turning on turbo, turn off other feature presets
+            if turbo.lower() == "on":
+                for feature in self._active_feature_presets:
+                    if feature != "turbo":
+                        setattr(self, f"_{feature}", "off")
+                        self._active_feature_presets[feature] = "off"
+        
         await self.async_send_cmd()
 
     async def async_set_quiet(self, quiet, state_mode):
-        """Set new target quiet mode."""
+        """Set new target quiet mode.
+        
+        This is a feature preset (mutually exclusive operation mode).
+        When turned on, it will turn off other feature presets.
+        """
         if quiet not in ON_OFF_LIST:
             return
+            
         self._quiet = quiet.lower()
         self._state_mode = state_mode
+        
+        # Update active feature presets tracking
+        if "quiet" in self._active_feature_presets:
+            self._active_feature_presets["quiet"] = quiet.lower()
+            
+            # If turning on quiet, turn off other feature presets
+            if quiet.lower() == "on":
+                for feature in self._active_feature_presets:
+                    if feature != "quiet":
+                        setattr(self, f"_{feature}", "off")
+                        self._active_feature_presets[feature] = "off"
+        
         await self.async_send_cmd()
 
     async def async_set_light(self, light, state_mode):
-        """Set new target light mode."""
+        """Set new target light mode.
+        
+        This is a feature toggle (can be enabled/disabled independently).
+        """
         if light not in ON_OFF_LIST:
             return
+            
         self._light = light.lower()
         self._state_mode = state_mode
+        
+        # Update active feature toggles tracking
+        if "light" in self._active_feature_toggles:
+            self._active_feature_toggles["light"] = light.lower()
+        
         await self.async_send_cmd()
 
     async def async_set_filters(self, filters, state_mode):
-        """Set new target filters mode."""
+        """Set new target filters mode.
+        
+        This is a feature toggle (can be enabled/disabled independently).
+        """
         if filters not in ON_OFF_LIST:
             return
+            
         self._filter = filters.lower()
         self._state_mode = state_mode
+        
+        # Update active feature toggles tracking
+        if "filter" in self._active_feature_toggles:
+            self._active_feature_toggles["filter"] = filters.lower()
+        
         await self.async_send_cmd()
 
     async def async_set_clean(self, clean, state_mode):
-        """Set new target clean mode."""
+        """Set new target clean mode.
+        
+        This is a feature toggle (can be enabled/disabled independently).
+        """
         if clean not in ON_OFF_LIST:
             return
+            
         self._clean = clean.lower()
         self._state_mode = state_mode
+        
+        # Update active feature toggles tracking
+        if "clean" in self._active_feature_toggles:
+            self._active_feature_toggles["clean"] = clean.lower()
+        
         await self.async_send_cmd()
 
     async def async_set_beep(self, beep, state_mode):
-        """Set new target beep mode."""
+        """Set new target beep mode.
+        
+        This is a feature toggle (can be enabled/disabled independently).
+        """
         if beep not in ON_OFF_LIST:
             return
+            
         self._beep = beep.lower()
         self._state_mode = state_mode
+        
+        # Update active feature toggles tracking
+        if "beep" in self._active_feature_toggles:
+            self._active_feature_toggles["beep"] = beep.lower()
+        
         await self.async_send_cmd()
 
     async def async_set_sleep(self, sleep, state_mode):
-        """Set new target sleep mode."""
+        """Set new target sleep mode.
+        
+        This is a feature preset (mutually exclusive operation mode).
+        When set, it will turn off other feature presets.
+        """
         self._sleep = sleep.lower()
         self._state_mode = state_mode
+        
+        # Update active feature presets tracking
+        if "sleep" in self._active_feature_presets:
+            self._active_feature_presets["sleep"] = sleep.lower()
+            
+            # If setting sleep to a non-off value, turn off other feature presets
+            if sleep.lower() != "off" and sleep != "-1":
+                for feature in self._active_feature_presets:
+                    if feature != "sleep":
+                        setattr(self, f"_{feature}", "off")
+                        self._active_feature_presets[feature] = "off"
+        
         await self.async_send_cmd()
 
     async def async_set_swingv(self, swingv, state_mode):
@@ -1575,16 +1762,35 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
 # The more comprehensive implementation at lines 1281-1313 is kept
 
     async def set_mode(self, hvac_mode):
-        """Set hvac mode."""
+        """Set hvac mode.
+        
+        This method handles the HVAC mode setting, including the OFF mode.
+        When setting to OFF, it stores the last active mode for future use.
+        """
         hvac_mode = hvac_mode.lower()
-        if hvac_mode not in self._attr_hvac_modes or hvac_mode == HVACMode.OFF:
+        
+        # Handle OFF mode specifically
+        if hvac_mode == HVACMode.OFF:
+            # Store the current mode as last_on_mode if we're currently on
+            if self._attr_hvac_mode != HVACMode.OFF:
+                self._last_on_mode = self._attr_hvac_mode
+            
             self._attr_hvac_mode = HVACMode.OFF
             self._enabled = False
             self.power_mode = STATE_OFF
-        else:
+            
+        # Handle other modes
+        elif hvac_mode in self._attr_hvac_modes:
             self._attr_hvac_mode = self._last_on_mode = hvac_mode
             self._enabled = True
             self.power_mode = STATE_ON
+            
+        # Handle invalid modes
+        else:
+            _LOGGER.warning(f"Invalid HVAC mode: {hvac_mode}. Setting to OFF.")
+            self._attr_hvac_mode = HVACMode.OFF
+            self._enabled = False
+            self.power_mode = STATE_OFF
 
     async def send_ir(self):
         """Send the payload to tasmota mqtt topic."""

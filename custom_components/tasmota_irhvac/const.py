@@ -64,15 +64,20 @@ HVAC_MODES = [
     HVAC_MODE_FAN_AUTO,
 ]
 
+# True presets (special operating modes)
 FEATURE_PRESETS = [
     PRESET_ECONO,
     PRESET_TURBO,
     PRESET_QUIET,
+    PRESET_SLEEP,
+]
+
+# Toggle features (simple on/off switches)
+FEATURE_TOGGLES = [
     PRESET_LIGHT,
     PRESET_FILTER,
     PRESET_CLEAN,
     PRESET_BEEP,
-    PRESET_SLEEP,
 ]
 
 # Configuration keys
@@ -186,7 +191,7 @@ ATTRIBUTES_IRHVAC = {
 
 ON_OFF_LIST = ["ON", "OFF", "On", "Off", "on", "off"]
 
-# Toggle options
+# All toggle options (for backward compatibility)
 TOGGLE_ALL_LIST = [
     "Quiet",
     "Turbo",
@@ -198,6 +203,22 @@ TOGGLE_ALL_LIST = [
     "Sleep",
     "SwingV",
     "SwingH"
+]
+
+# True preset options
+PRESET_OPTIONS_LIST = [
+    "Quiet",
+    "Turbo",
+    "Econo",
+    "Sleep"
+]
+
+# True toggle options
+TOGGLE_OPTIONS_LIST = [
+    "Light",
+    "Filter",
+    "Clean",
+    "Beep"
 ]
 
 STATE_MODE_LIST = ["StoreOnly", "SendStore"]
