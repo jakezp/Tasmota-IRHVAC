@@ -1,0 +1,141 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Device is already configured"
+        },
+        "error": {
+            "invalid_entity_id": "Invalid sensor entity ID",
+            "cannot_connect": "Failed to connect to device",
+            "invalid_auth": "Invalid authentication",
+            "unknown": "Unexpected error occurred",
+            "no_ir": "No IR support found on device",
+            "invalid_temp_range": "Maximum temperature must be greater than minimum temperature",
+            "invalid_target_temp": "Target temperature must be between minimum and maximum temperatures"
+        },
+        "step": {
+            "user": {
+                "title": "Tasmota IRHVAC Setup",
+                "description": "Enter the IP address or hostname of your Tasmota IR device. We will confirm the device status and confirm the configuration.",
+                "data": {
+                    "host": "IP Address or Hostname",
+                    "username": "Username (optional)",
+                    "password": "Password (optional)"
+                }
+            },
+            "ir": {
+                "title": "IR Configuration",
+                "description": "Configure your IR HVAC settings.\n\nSupported vendors: [Tasmota IR Documentation](https://tasmota.github.io/docs/IR-Remote/#sending-irhvac-commands)\n\n**Note:** [Device](http://{device_ip}/cs?).",
+                "data": {
+                    "vendor": "AC Vendor/Protocol",
+                    "hvac_model": "HVAC Model Number (optional)",
+                    "mqtt_delay": "MQTT Delay (seconds)"
+                }
+            },
+            "sensors": {
+                "data": {
+                    "temperature_sensor": "Temperature Sensor",
+                    "humidity_sensor": "Humidity Sensor",
+                    "power_sensor": "Power Sensor"
+                },
+                "description": "Select optional sensor entities",
+                "title": "Sensor Configuration"
+            },
+            "temperature": {
+                "data": {
+                    "min_temp": "Minimum Temperature",
+                    "max_temp": "Maximum Temperature",
+                    "target_temp": "Default Target Temperature",
+                    "away_temp": "Away Temperature",
+                    "precision": "Temperature Precision",
+                    "temp_step": "Temperature Step",
+                    "celsius_mode": "Use Celsius"
+                },
+                "description": "Configure temperature settings",
+                "title": "Temperature Configuration"
+            },
+            "modes": {
+                "title": "Operation Modes",
+                "description": "Configure supported modes",
+                "data": {
+                    "supported_modes": "Supported HVAC Modes",
+                    "supported_fan_speeds": "Supported Fan Speeds",
+                    "supported_swing_list": "Supported Swing Modes",
+                    "default_swingv": "Default Vertical Swing",
+                    "default_swingh": "Default Horizontal Swing"
+                }
+            },
+            "presets": {
+                "title": "Preset Modes Configuration",
+                "description": "Configure which preset modes should be available for this AC unit.\n\n**Enabled Presets** will be available in the climate card.\n**Default Presets** will be activated when the AC starts.",
+                "data": {
+                    "enabled_presets": "Enable Preset Modes",
+                    "default_presets": "Default Active Presets"
+                }
+            },
+            "features": {
+                "title": "Additional Features",
+                "description": "Configure additional AC features",
+                "data": {
+                   "toggle_list": "Toggle Features",
+                    "default_quiet_mode": "Default Quiet Mode",
+                    "default_turbo_mode": "Default Turbo Mode",
+                    "default_econo_mode": "Default Economy Mode",
+                    "default_light_mode": "Default Light Mode",
+                    "default_filter_mode": "Default Filter Mode",
+                    "default_clean_mode": "Default Clean Mode",
+                    "default_beep_mode": "Default Beep Mode",
+                    "default_sleep_mode": "Default Sleep Mode",
+                    "keep_mode_when_off": "Keep Mode When Off",
+                    "ignore_off_temp": "Ignore Temperature When Off"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Tasmota IRHVAC Options",
+                "description": "Modify your IR HVAC settings",
+                "data": {
+                    "min_temp": "Minimum Temperature",
+                    "max_temp": "Maximum Temperature",
+                    "target_temp": "Default Target Temperature",
+                    "temp_step": "Temperature Step",
+                    "mqtt_delay": "MQTT Delay",
+                    "supported_modes": "Supported HVAC Modes",
+                    "supported_fan_speeds": "Supported Fan Speeds",
+                    "supported_swing_list": "Supported Swing Modes",
+                    "default_quiet_mode": "Default Quiet Mode",
+                    "default_turbo_mode": "Default Turbo Mode",
+                    "default_econo_mode": "Default Economy Mode",
+                    "default_light_mode": "Default Light Mode",
+                    "keep_mode_when_off": "Keep Mode When Off",
+                    "ignore_off_temp": "Ignore Temperature When Off"
+                }
+            }
+        },
+        "error": {
+            "invalid_temp_range": "Maximum temperature must be greater than minimum temperature",
+            "invalid_target_temp": "Target temperature must be between minimum and maximum temperatures",
+            "unknown": "Unexpected error occurred"
+        }
+    },
+    "entity": {
+        "climate": {
+            "tasmota_irhvac": {
+                "preset_mode": {
+                    "none": "Normal",
+                    "away": "Away",
+                    "econo": "Economy",
+                    "turbo": "Turbo",
+                    "quiet": "Quiet",
+                    "light": "Light",
+                    "filter": "Filter",
+                    "clean": "Clean",
+                    "beep": "Beep",
+                    "sleep": "Sleep"
+                }
+            }
+        }
+    }
+}

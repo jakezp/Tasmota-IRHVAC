@@ -1,0 +1,49 @@
+# Test configuration for Tasmota IRHVAC integration
+climate:
+  - platform: tasmota_irhvac
+    name: "Test AC"
+    command_topic: "cmnd/tasmota_test/irhvac"
+    state_topic: "tele/tasmota_test/RESULT"
+    state_topic_2: "stat/tasmota_test/RESULT"
+    availability_topic: "tele/tasmota_test/LWT"
+    temperature_sensor: sensor.test_temperature
+    humidity_sensor: sensor.test_humidity
+    power_sensor: binary_sensor.test_power
+    vendor: "SAMSUNG_AC"
+    mqtt_delay: 0.5
+    min_temp: 16
+    max_temp: 30
+    target_temp: 24
+    initial_operation_mode: "off"
+    away_temp: 26
+    precision: 1
+    temp_step: 0.5
+    supported_modes:
+      - "heat"
+      - "cool"
+      - "dry"
+      - "fan_only"
+      - "auto"
+      - "off"
+    supported_fan_speeds:
+      - "auto"
+      - "low"
+      - "medium"
+      - "high"
+    supported_swing_list:
+      - "off"
+      - "vertical"
+      - "horizontal"
+      - "both"
+    default_quiet_mode: "Off"
+    default_turbo_mode: "Off"
+    default_econo_mode: "Off"
+    hvac_model: "1"
+    celsius_mode: "On"
+    default_light_mode: "Off"
+    default_filter_mode: "Off"
+    default_clean_mode: "Off"
+    default_beep_mode: "Off"
+    default_sleep_mode: "0"
+    keep_mode_when_off: False
+    ignore_off_temp: False

@@ -1,0 +1,81 @@
+# Test service calls for Tasmota IRHVAC integration
+
+# Test econo mode
+- service: tasmota_irhvac.set_econo
+  target:
+    entity_id: climate.test_ac
+  data:
+    econo: "on"
+    state_mode: "SendStore"
+
+# Test turbo mode
+- service: tasmota_irhvac.set_turbo
+  target:
+    entity_id: climate.test_ac
+  data:
+    turbo: "on"
+    state_mode: "SendStore"
+
+# Test quiet mode
+- service: tasmota_irhvac.set_quiet
+  target:
+    entity_id: climate.test_ac
+  data:
+    quiet: "on"
+    state_mode: "SendStore"
+
+# Test light mode
+- service: tasmota_irhvac.set_light
+  target:
+    entity_id: climate.test_ac
+  data:
+    light: "on"
+    state_mode: "SendStore"
+
+# Test filters mode
+- service: tasmota_irhvac.set_filters
+  target:
+    entity_id: climate.test_ac
+  data:
+    filters: "on"
+    state_mode: "SendStore"
+
+# Test clean mode
+- service: tasmota_irhvac.set_clean
+  target:
+    entity_id: climate.test_ac
+  data:
+    clean: "on"
+    state_mode: "SendStore"
+
+# Test beep mode
+- service: tasmota_irhvac.set_beep
+  target:
+    entity_id: climate.test_ac
+  data:
+    beep: "on"
+    state_mode: "SendStore"
+
+# Test sleep mode
+- service: tasmota_irhvac.set_sleep
+  target:
+    entity_id: climate.test_ac
+  data:
+    sleep: "1"
+    state_mode: "SendStore"
+
+# Test vertical swing
+- service: tasmota_irhvac.set_swingv
+  target:
+    entity_id: climate.test_ac
+  data:
+    swingv: "middle"
+    state_mode: "SendStore"
+
+# Test horizontal swing
+- service: tasmota_irhvac.set_swingh
+  target:
+    entity_id: climate.test_ac
+  data:
+    swingh: "middle"
+    state_mode: "SendStore"

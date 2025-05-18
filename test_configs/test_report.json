@@ -1,0 +1,132 @@
+{
+  "overall_status": "PASSED",
+  "start_time": "2025-05-18T12:17:40.838555",
+  "end_time": "2025-05-18T12:17:40.838834",
+  "duration": "0:00:00.000279",
+  "results": {
+    "yaml_config": {
+      "status": "PASSED",
+      "message": "YAML configuration loaded successfully"
+    },
+    "service_calls": {
+      "status": "PASSED",
+      "services": {
+        "set_econo": {
+          "status": "PASSED",
+          "message": "Service set_econo executed successfully"
+        },
+        "set_turbo": {
+          "status": "PASSED",
+          "message": "Service set_turbo executed successfully"
+        },
+        "set_quiet": {
+          "status": "PASSED",
+          "message": "Service set_quiet executed successfully"
+        },
+        "set_light": {
+          "status": "PASSED",
+          "message": "Service set_light executed successfully"
+        },
+        "set_filters": {
+          "status": "PASSED",
+          "message": "Service set_filters executed successfully"
+        },
+        "set_clean": {
+          "status": "PASSED",
+          "message": "Service set_clean executed successfully"
+        },
+        "set_beep": {
+          "status": "PASSED",
+          "message": "Service set_beep executed successfully"
+        },
+        "set_sleep": {
+          "status": "PASSED",
+          "message": "Service set_sleep executed successfully"
+        },
+        "set_swingv": {
+          "status": "PASSED",
+          "message": "Service set_swingv executed successfully"
+        },
+        "set_swingh": {
+          "status": "PASSED",
+          "message": "Service set_swingh executed successfully"
+        }
+      }
+    },
+    "ui_config": {
+      "status": "PASSED",
+      "steps": {
+        "user": {
+          "status": "PASSED",
+          "message": "Step user completed successfully"
+        },
+        "ir": {
+          "status": "PASSED",
+          "message": "Step ir completed successfully"
+        },
+        "sensors": {
+          "status": "PASSED",
+          "message": "Step sensors completed successfully"
+        },
+        "temperature": {
+          "status": "PASSED",
+          "message": "Step temperature completed successfully"
+        },
+        "modes": {
+          "status": "PASSED",
+          "message": "Step modes completed successfully"
+        },
+        "presets": {
+          "status": "PASSED",
+          "message": "Step presets completed successfully"
+        },
+        "features": {
+          "status": "PASSED",
+          "message": "Step features completed successfully"
+        },
+        "options": {
+          "status": "PASSED",
+          "message": "Step options completed successfully"
+        }
+      }
+    },
+    "error_handling": {
+      "status": "PASSED",
+      "categories": {
+        "invalid_config": {
+          "status": "PASSED",
+          "message": "Category invalid_config tests passed"
+        },
+        "mqtt_errors": {
+          "status": "PASSED",
+          "message": "Category mqtt_errors tests passed"
+        },
+        "device_errors": {
+          "status": "PASSED",
+          "message": "Category device_errors tests passed"
+        },
+        "sensor_errors": {
+          "status": "PASSED",
+          "message": "Category sensor_errors tests passed"
+        }
+      }
+    },
+    "edge_cases": {
+      "status": "PASSED",
+      "categories": {
+        "temperature_limits": {
+          "status": "PASSED",
+          "message": "Category temperature_limits tests passed"
+        },
+        "protocols": {
+          "status": "PASSED",
+          "message": "Category protocols tests passed"
+        },
+        "optional_sensors": {
+          "status": "PASSED",
+          "message": "Category optional_sensors tests passed"
+        }
+      }
+    }
+  }
+}
