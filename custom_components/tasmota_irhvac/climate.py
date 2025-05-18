@@ -1098,22 +1098,96 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
                                 self._attr_target_temperature = payload["Temp"]
                     if "Celsius" in payload:
                         self._celsius = payload["Celsius"].lower()
+                    # Update individual feature states and track in _active_feature_presets
+                    # Track which preset was turned on (if any)
+                    newly_activated_preset = None
+                    
                     if "Quiet" in payload:
-                        self._quiet = payload["Quiet"].lower()
+                        new_state = payload["Quiet"].lower()
+                        self._quiet = new_state
+                        if hasattr(self, "_active_feature_presets") and "quiet" in self._active_feature_presets:
+                            # Check if this preset was just turned on
+                            if new_state == "on" and self._active_feature_presets["quiet"] != "on":
+                                newly_activated_preset = "quiet"
+                            self._active_feature_presets["quiet"] = new_state
+                            _LOGGER.debug("Updated quiet preset state from MQTT: %s", new_state)
+                    
                     if "Turbo" in payload:
-                        self._turbo = payload["Turbo"].lower()
+                        new_state = payload["Turbo"].lower()
+                        self._turbo = new_state
+                        if hasattr(self, "_active_feature_presets") and "turbo" in self._active_feature_presets:
+                            # Check if this preset was just turned on
+                            if new_state == "on" and self._active_feature_presets["turbo"] != "on":
+                                newly_activated_preset = "turbo"
+                            self._active_feature_presets["turbo"] = new_state
+                            _LOGGER.debug("Updated turbo preset state from MQTT: %s", new_state)
+                    
                     if "Econo" in payload:
-                        self._econo = payload["Econo"].lower()
+                        new_state = payload["Econo"].lower()
+                        self._econo = new_state
+                        if hasattr(self, "_active_feature_presets") and "econo" in self._active_feature_presets:
+                            # Check if this preset was just turned on
+                            if new_state == "on" and self._active_feature_presets["econo"] != "on":
+                                newly_activated_preset = "econo"
+                            self._active_feature_presets["econo"] = new_state
+                            _LOGGER.debug("Updated econo preset state from MQTT: %s", new_state)
+                    
                     if "Light" in payload:
-                        self._light = payload["Light"].lower()
+                        new_state = payload["Light"].lower()
+                        self._light = new_state
+                        if hasattr(self, "_active_feature_toggles") and "light" in self._active_feature_toggles:
+                            self._active_feature_toggles["light"] = new_state
+                            _LOGGER.debug("Updated light toggle state from MQTT: %s", new_state)
+                    
                     if "Filter" in payload:
-                        self._filter = payload["Filter"].lower()
+                        new_state = payload["Filter"].lower()
+                        self._filter = new_state
+                        if hasattr(self, "_active_feature_toggles") and "filter" in self._active_feature_toggles:
+                            self._active_feature_toggles["filter"] = new_state
+                            _LOGGER.debug("Updated filter toggle state from MQTT: %s", new_state)
+                    
                     if "Clean" in payload:
-                        self._clean = payload["Clean"].lower()
+                        new_state = payload["Clean"].lower()
+                        self._clean = new_state
+                        if hasattr(self, "_active_feature_toggles") and "clean" in self._active_feature_toggles:
+                            self._active_feature_toggles["clean"] = new_state
+                            _LOGGER.debug("Updated clean toggle state from MQTT: %s", new_state)
+                    
                     if "Beep" in payload:
-                        self._beep = payload["Beep"].lower()
+                        new_state = payload["Beep"].lower()
+                        self._beep = new_state
+                        if hasattr(self, "_active_feature_toggles") and "beep" in self._active_feature_toggles:
+                            self._active_feature_toggles["beep"] = new_state
+                            _LOGGER.debug("Updated beep toggle state from MQTT: %s", new_state)
+                    
                     if "Sleep" in payload:
                         self._sleep = payload["Sleep"]
+                        if hasattr(self, "_active_feature_presets") and "sleep" in self._active_feature_presets:
+                            # Sleep can be a number or "off", so handle it specially
+                            sleep_state = "off" if payload["Sleep"] == "off" or payload["Sleep"] == "-1" else "on"
+                            # Check if sleep was just turned on
+                            if sleep_state == "on" and self._active_feature_presets["sleep"] != "on":
+                                newly_activated_preset = "sleep"
+                            self._active_feature_presets["sleep"] = sleep_state
+                            _LOGGER.debug("Updated sleep preset state from MQTT: %s (raw: %s)",
+                                         sleep_state, payload["Sleep"])
+                    
+                    # Ensure mutual exclusivity of presets when one is turned on via remote
+                    if hasattr(self, "_active_feature_presets"):
+                        # If a preset was just activated, turn off all other presets
+                        if newly_activated_preset:
+                            _LOGGER.debug("Preset '%s' was activated via MQTT - ensuring mutual exclusivity",
+                                         newly_activated_preset)
+                            for preset in self._active_feature_presets:
+                                if preset != newly_activated_preset:
+                                    self._active_feature_presets[preset] = "off"
+                                    # Also update the corresponding instance variable
+                                    setattr(self, f"_{preset}", "off")
+                        
+                        # Log the current active preset for debugging
+                        active_presets = [p for p, state in self._active_feature_presets.items()
+                                         if state.lower() == "on"]
+                        _LOGGER.debug("Active presets after MQTT update: %s", active_presets)
                     if "SwingV" in payload:
                         self._swingv = payload["SwingV"].lower()
                         if self._swingv != "auto":
@@ -1182,6 +1256,11 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
                     for key in self._toggle_list:
                         setattr(self, "_" + key.lower(), "off")
 
+                    # Log the current preset mode for debugging
+                    current_preset = self.preset_mode
+                    _LOGGER.debug("Current preset mode after MQTT update: %s", current_preset)
+                    _LOGGER.debug("Active feature presets: %s", self._active_feature_presets)
+                    
                     # Update HA UI and State
                     self.async_schedule_update_ha_state()
 
@@ -1357,11 +1436,14 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
             if state.lower() == "on":
                 # Special case for econo - map to standard ECO preset
                 if preset == "econo":
+                    _LOGGER.debug("Econo is active, returning ECO preset")
                     return PRESET_ECO
                 # Return the preset name with proper capitalization
                 # This ensures the UI displays it correctly with proper icons
+                _LOGGER.debug("Preset %s is active with state: %s", preset, state)
                 return preset.capitalize()
 
+        _LOGGER.debug("No active presets found in: %s", self._active_feature_presets)
         return PRESET_NONE
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
