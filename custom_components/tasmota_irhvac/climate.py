@@ -148,7 +148,7 @@ from .const import (
     DEFAULT_MAX_TEMP,
     DEFAULT_PRECISION,
     DEFAULT_FAN_LIST,
-    DEFAULT_MODES_LIST,
+    DEFAULT_MODES_LIST,  # Explicitly importing DEFAULT_MODES_LIST from const.py
     DEFAULT_CONF_QUIET,
     DEFAULT_CONF_TURBO,
     DEFAULT_CONF_ECONO,
@@ -177,7 +177,7 @@ from .const import (
     TOGGLE_ALL_LIST,
 )
 
-# Import DEFAULT_MODES_LIST from const.py instead of redefining it here
+# DEFAULT_MODES_LIST is imported from const.py
 
 DEFAULT_SWING_LIST = [SWING_OFF, SWING_VERTICAL]
 DEFAULT_INITIAL_OPERATION_MODE = HVACMode.OFF
@@ -833,20 +833,22 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
             self._support_flags = self._support_flags | ClimateEntityFeature.SWING_MODE
 
     def fan_prettify(self, mode):
+        """Convert internal fan mode values to display values with proper styling."""
         if not self._quirk_fan_prettify:
             return mode
         if mode == HVAC_FAN_MIN:
-            return FAN_LOW
+            return FAN_LOW  # This will display as "Low" with proper icon
         if mode == HVAC_FAN_MAX:
-            return FAN_HIGH
+            return FAN_AUTO  # This will display as "Auto" with proper icon
         return mode
 
     def fan_unprettify(self, mode):
+        """Convert display values back to internal fan mode values."""
         if not self._quirk_fan_prettify:
             return mode
         if mode == FAN_LOW:
             return HVAC_FAN_MIN
-        if mode == FAN_HIGH:
+        if mode == FAN_AUTO:
             return HVAC_FAN_MAX
         return mode
 
@@ -1097,7 +1099,7 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
                         # ELECTRA_AC fan modes fix
                         if self._quirk_fan_max_high:
                             if fan_mode == HVAC_FAN_MAX:
-                                self._attr_fan_mode = FAN_HIGH
+                                self._attr_fan_mode = FAN_AUTO  # Changed from FAN_HIGH to FAN_AUTO
                             elif fan_mode == HVAC_FAN_AUTO:
                                 self._attr_fan_mode = HVAC_FAN_MAX
                             else:
@@ -1560,7 +1562,7 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
             fan_speed = self.fan_unprettify(self._attr_fan_mode)
             # tweak for some ELECTRA_AC devices
             if self._quirk_fan_max_high:
-                if fan_speed == FAN_HIGH:
+                if fan_speed == FAN_AUTO:  # Changed from FAN_HIGH to FAN_AUTO
                     fan_speed = HVAC_FAN_MAX
                 elif fan_speed == HVAC_FAN_MAX:
                     fan_speed = HVAC_FAN_AUTO
