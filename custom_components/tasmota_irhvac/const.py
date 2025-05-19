@@ -66,10 +66,8 @@ HVAC_MODES = [
 
 # True presets (special operating modes)
 FEATURE_PRESETS = [
-    PRESET_ECONO,
     PRESET_TURBO,
     PRESET_QUIET,
-    PRESET_SLEEP,
 ]
 
 # Toggle features (simple on/off switches)
@@ -208,9 +206,7 @@ TOGGLE_ALL_LIST = [
 # True preset options
 PRESET_OPTIONS_LIST = [
     "Quiet",
-    "Turbo",
-    "Econo",
-    "Sleep"
+    "Turbo"
 ]
 
 # True toggle options

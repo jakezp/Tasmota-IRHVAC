@@ -822,13 +822,13 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
             self._attr_preset_modes.append(PRESET_AWAY)
         
         # Add feature presets (mutually exclusive modes)
-        preset_features = [p for p in enabled_presets if p in self._feature_presets]
+        preset_features = [p for p in enabled_presets if p in self._feature_presets and p != "sleep" and p != "econo"]
         if preset_features:
             # Ensure proper capitalization for UI display
             self._attr_preset_modes.extend([p.capitalize() for p in preset_features])
             
-        # Add ECO preset if econo is enabled but not already added
-        if "econo" in preset_features and PRESET_ECO not in self._attr_preset_modes:
+        # Always add ECO preset
+        if PRESET_ECO not in self._attr_preset_modes:
             self._attr_preset_modes.append(PRESET_ECO)
 
         # Additional settings
@@ -1078,30 +1078,74 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
 
                 payload = json_payload["IRHVAC"]
 
-                if payload["Vendor"] == self._vendor:
-                    # All values in the payload are Optional
-                    prev_power = self.power_mode
-                    if "Power" in payload:
-                        self.power_mode = payload["Power"].lower()
-                    if "Mode" in payload:
-                        self._attr_hvac_mode = payload["Mode"].lower()
-                        # Some vendors send/receive mode as fan instead of fan_only
-                        if self._attr_hvac_mode == HVACAction.FAN:
-                            self._attr_hvac_mode = HVACMode.FAN_ONLY
-                    if "Temp" in payload:
-                        if payload["Temp"] > 0:
-                            if self.power_mode == STATE_OFF and self._ignore_off_temp:
-                                self._attr_target_temperature = (
-                                    self._attr_target_temperature
-                                )
-                            else:
-                                self._attr_target_temperature = payload["Temp"]
-                    if "Celsius" in payload:
-                        self._celsius = payload["Celsius"].lower()
-                    # Update individual feature states and track in _active_feature_presets
-                    # Track which preset was turned on (if any)
-                    newly_activated_preset = None
+                # Log vendor information for debugging
+                _LOGGER.debug("Processing message for vendor: %s", payload["Vendor"])
+                
+                # All values in the payload are Optional
+                prev_power = self.power_mode
+                if "Power" in payload:
+                    self.power_mode = payload["Power"].lower()
+                if "Mode" in payload:
+                    self._attr_hvac_mode = payload["Mode"].lower()
+                    # Some vendors send/receive mode as fan instead of fan_only
+                    if self._attr_hvac_mode == HVACAction.FAN:
+                        self._attr_hvac_mode = HVACMode.FAN_ONLY
+                if "Temp" in payload:
+                    if payload["Temp"] > 0:
+                        if self.power_mode == STATE_OFF and self._ignore_off_temp:
+                            self._attr_target_temperature = (
+                                self._attr_target_temperature
+                            )
+                        else:
+                            self._attr_target_temperature = payload["Temp"]
+                if "Celsius" in payload:
+                    self._celsius = payload["Celsius"].lower()
+                # Update individual feature states and track in _active_feature_presets
+                # Track which preset was turned on (if any)
+                newly_activated_preset = None
+                
+                # Special handling for Samsung AC Turbo mode detection from Data field
+                if payload["Vendor"].upper() == "SAMSUNG" and "Data" in payload:
+                    data_value = payload["Data"]
+                    _LOGGER.debug("Samsung AC Data value: %s", data_value)
                     
+                    # Check for Turbo mode pattern in Data field
+                    # Turbo ON pattern: position 6 is "B" and position 7 is "7"
+                    # Example: "0x0292B7000000F001B2FE779011F0"
+                    #                  ^  ^
+                    # Turbo OFF pattern: position 6 is "D" and position 7 is "1"
+                    # Example: "0x0292D1000000F001D2FE719011F0"
+                    #                  ^  ^
+                    if len(data_value) >= 25:  # Ensure data is long enough
+                        # Extract the key characters for debugging
+                        char_pos_6 = data_value[6]
+                        char_pos_7 = data_value[7]
+                        _LOGGER.debug("Samsung AC Data pattern - Position 6: %s, Position 7: %s",
+                                     char_pos_6, char_pos_7)
+                        
+                        turbo_on = char_pos_6 == "B" and char_pos_7 == "7"
+                        new_state = "on" if turbo_on else "off"
+                        
+                        _LOGGER.debug("Samsung AC Turbo detection - Current state: %s, Detected state: %s",
+                                     self._turbo, new_state)
+                        
+                        # Only update if the state has changed
+                        if self._turbo != new_state:
+                            _LOGGER.info("Samsung AC Turbo mode changed from %s to %s based on Data pattern",
+                                       self._turbo, new_state)
+                            self._turbo = new_state
+                            
+                            if hasattr(self, "_active_feature_presets") and "turbo" in self._active_feature_presets:
+                                # Check if this preset was just turned on
+                                if new_state == "on" and self._active_feature_presets["turbo"] != "on":
+                                    newly_activated_preset = "turbo"
+                                self._active_feature_presets["turbo"] = new_state
+                                _LOGGER.debug("Updated turbo preset state from Samsung Data pattern: %s", new_state)
+                    else:
+                        _LOGGER.warning("Samsung AC Data value too short for Turbo detection: %s", data_value)
+                
+                # Process vendor-specific features
+                if payload["Vendor"] == self._vendor:
                     if "Quiet" in payload:
                         new_state = payload["Quiet"].lower()
                         self._quiet = new_state
@@ -1111,16 +1155,22 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
                                 newly_activated_preset = "quiet"
                             self._active_feature_presets["quiet"] = new_state
                             _LOGGER.debug("Updated quiet preset state from MQTT: %s", new_state)
+                
+                # For all ACs, check the Turbo field directly
+                if "Turbo" in payload:
+                    new_state = payload["Turbo"].lower()
                     
-                    if "Turbo" in payload:
-                        new_state = payload["Turbo"].lower()
-                        self._turbo = new_state
-                        if hasattr(self, "_active_feature_presets") and "turbo" in self._active_feature_presets:
-                            # Check if this preset was just turned on
-                            if new_state == "on" and self._active_feature_presets["turbo"] != "on":
-                                newly_activated_preset = "turbo"
-                            self._active_feature_presets["turbo"] = new_state
-                            _LOGGER.debug("Updated turbo preset state from MQTT: %s", new_state)
+                    # Always set the turbo state regardless of vendor
+                    self._turbo = new_state
+                    _LOGGER.debug("Updated turbo state from MQTT: %s", new_state)
+                    
+                    # Handle feature presets if available
+                    if hasattr(self, "_active_feature_presets") and "turbo" in self._active_feature_presets:
+                        # Check if this preset was just turned on
+                        if new_state == "on" and self._active_feature_presets["turbo"] != "on":
+                            newly_activated_preset = "turbo"
+                        self._active_feature_presets["turbo"] = new_state
+                        _LOGGER.debug("Updated turbo preset state from MQTT: %s", new_state)
                     
                     if "Econo" in payload:
                         new_state = payload["Econo"].lower()
@@ -1444,6 +1494,7 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
                 return preset.capitalize()
 
         _LOGGER.debug("No active presets found in: %s", self._active_feature_presets)
+        # Return PRESET_NONE as the default when no presets are active
         return PRESET_NONE
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
@@ -1490,20 +1541,16 @@ class TasmotaIrhvac(RestoreEntity, ClimateEntity):
                 setattr(self, f"_{feature}", "off")
                 self._active_feature_presets[feature] = "off"
                 
-        # Handle ECO preset (maps to econo)
-        elif preset_mode == PRESET_ECO and "econo" in self._active_feature_presets:
+        # Handle ECO preset
+        elif preset_mode == PRESET_ECO:
             if self._is_away:
                 self._is_away = False
                 self._attr_target_temperature = self._saved_target_temp
                 
-            # Turn on econo, turn off other feature presets
+            # Turn off all other feature presets
             for feature in self._active_feature_presets:
-                if feature == "econo":
-                    setattr(self, f"_{feature}", "on")
-                    self._active_feature_presets[feature] = "on"
-                else:
-                    setattr(self, f"_{feature}", "off")
-                    self._active_feature_presets[feature] = "off"
+                setattr(self, f"_{feature}", "off")
+                self._active_feature_presets[feature] = "off"
                     
         # Handle other feature presets
         elif preset_mode in self._active_feature_presets:

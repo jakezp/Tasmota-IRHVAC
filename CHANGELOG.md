@@ -26,6 +26,15 @@ All notable changes to the Tasmota IRHVAC integration will be documented in this
 - Code quality improvements and better type hinting
 - Better handling of sensor unavailability
 
+### Fixed
+- **Samsung AC Turbo Mode**: Fixed Turbo mode detection for Samsung ACs by analyzing the Data field pattern instead of the Turbo parameter
+  - Identified specific bit patterns in positions 6 and 7 of the Data field that indicate Turbo mode status
+  - Turbo ON pattern: "B" at position 6 and "7" at position 7 (e.g., "0x0292B7000000F001B2FE779011F0")
+  - Turbo OFF pattern: "D" at position 6 and "1" at position 7 (e.g., "0x0292D1000000F001D2FE719011F0")
+- Improved handling of Turbo mode for non-Samsung ACs by moving Turbo field processing outside vendor-specific code
+- Added comprehensive logging for Samsung AC Turbo mode detection
+- Added test cases to verify Samsung AC Turbo mode detection for both Samsung and non-Samsung devices
+
 ### Breaking Changes
 - Configuration structure has been updated (backward compatibility maintained)
 - Some service parameters have been standardized

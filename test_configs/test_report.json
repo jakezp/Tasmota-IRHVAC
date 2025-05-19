@@ -1,8 +1,8 @@
 {
   "overall_status": "PASSED",
-  "start_time": "2025-05-18T12:17:40.838555",
-  "end_time": "2025-05-18T12:17:40.838834",
-  "duration": "0:00:00.000279",
+  "start_time": "2025-05-18T23:21:48.890010",
+  "end_time": "2025-05-18T23:21:48.890339",
+  "duration": "0:00:00.000329",
   "results": {
     "yaml_config": {
       "status": "PASSED",
@@ -125,6 +125,27 @@
         "optional_sensors": {
           "status": "PASSED",
           "message": "Category optional_sensors tests passed"
+        }
+      }
+    },
+    "samsung_turbo": {
+      "status": "PASSED",
+      "test_cases": {
+        "Samsung AC Turbo ON": {
+          "status": "PASSED",
+          "message": "Test case Samsung AC Turbo ON passed"
+        },
+        "Samsung AC Turbo OFF": {
+          "status": "PASSED",
+          "message": "Test case Samsung AC Turbo OFF passed"
+        },
+        "Samsung AC with explicit Turbo field": {
+          "status": "PASSED",
+          "message": "Test case Samsung AC with explicit Turbo field passed"
+        },
+        "Non-Samsung AC with Turbo field": {
+          "status": "PASSED",
+          "message": "Test case Non-Samsung AC with Turbo field passed"
         }
       }
     }

@@ -125,14 +125,30 @@
                     "none": "Normal",
                     "away": "Away",
                     "eco": "Economy",
-                    "econo": "Economy",
                     "turbo": "Turbo",
                     "quiet": "Quiet",
                     "light": "Light",
                     "filter": "Filter",
                     "clean": "Clean",
-                    "beep": "Beep",
-                    "sleep": "Sleep"
+                    "beep": "Beep"
+                },
+                "state_attributes": {
+                    "preset_mode": {
+                        "state": {
+                            "none": {
+                                "icon": "mdi:tune"
+                            },
+                            "eco": {
+                                "icon": "mdi:leaf"
+                            },
+                            "turbo": {
+                                "icon": "mdi:rocket-launch"
+                            },
+                            "quiet": {
+                                "icon": "mdi:volume-off"
+                            }
+                        }
+                    }
                 }
             }
         }

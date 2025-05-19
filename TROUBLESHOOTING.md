@@ -120,6 +120,25 @@ This guide provides solutions for common issues you might encounter when using t
 - Some Samsung models have limited support for swing modes
 - Verify the IR codes using the Tasmota console
 
+**Issue**: Turbo mode doesn't work with Samsung ACs.
+
+**Solution**:
+- Samsung ACs encode Turbo mode in the "Data" field rather than using a separate "Turbo" parameter
+- The integration now detects Turbo mode by analyzing the Data field pattern
+- Turbo ON pattern has "B" at position 6 and "7" at position 7 in the Data field
+- Turbo OFF pattern has "D" at position 6 and "1" at position 7 in the Data field
+- Example Turbo ON: `"Data":"0x0292B7000000F001B2FE779011F0"`
+- Example Turbo OFF: `"Data":"0x0292D1000000F001D2FE719011F0"`
+- Enable debug logging to verify detection is working correctly
+
+**Troubleshooting Samsung Turbo Mode**:
+1. Enable debug logging for the integration (see [Logging](#logging) section)
+2. Use your remote to toggle Turbo mode on and off
+3. Check the logs for messages like "Samsung AC Data pattern - Position 6: B, Position 7: 7"
+4. Verify that the Turbo state changes in the Home Assistant UI
+5. If detection isn't working, the Data pattern might be different for your model
+   - Share your logs in a GitHub issue to help improve detection
+
 ### MITSUBISHI_AC Issues
 
 **Issue**: Mode changes don't work correctly.
